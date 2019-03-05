@@ -15,13 +15,18 @@ type ItemList struct {
 // GetItemList retrieves the full item list, merging the results from all providers.
 // It does NOT cache, it's the responsability of the providers to keep an in-ram representation if desired.
 func GetItemList() (*ItemList, error) {
+	return _store.GetItemList()
+}
 
-	pMut.Lock()
-	defer pMut.Unlock()
+// GetItemList retrieves the full item list, merging the results from all providers.
+// It does NOT cache, it's the responsability of the providers to keep an in-ram representation if desired.
+func (s *Store) GetItemList() (*ItemList, error) {
+	s.pMut.Lock()
+	defer s.pMut.Unlock()
 
 	ret := &ItemList{}
 
-	for n, p := range providers {
+	for n, p := range s.providers {
 		l, err := p()
 		if err != nil {
 			return nil, ErrProvider(fmt.Sprintf("configstore: provider '%s': %s", n, err))
@@ -34,7 +39,13 @@ func GetItemList() (*ItemList, error) {
 // GetItem retrieves the full item list, merging the results from all providers, then returns a single item by key.
 // If 0 or >=2 items are present with that key, it will return an error.
 func GetItem(key string) (Item, error) {
-	items, err := GetItemList()
+	return _store.GetItem(key)
+}
+
+// GetItem retrieves the full item list, merging the results from all providers, then returns a single item by key.
+// If 0 or >=2 items are present with that key, it will return an error.
+func (s *Store) GetItem(key string) (Item, error) {
+	items, err := s.GetItemList()
 	if err != nil {
 		return Item{}, err
 	}
@@ -43,7 +54,12 @@ func GetItem(key string) (Item, error) {
 
 // GetItemValue fetches the full item list, merging the results from all providers, then returns a single item's value by key.
 func GetItemValue(key string) (string, error) {
-	i, err := GetItem(key)
+	return _store.GetItemValue(key)
+}
+
+// GetItemValue fetches the full item list, merging the results from all providers, then returns a single item's value by key.
+func (s *Store) GetItemValue(key string) (string, error) {
+	i, err := s.GetItem(key)
 	if err != nil {
 		return "", err
 	}
@@ -52,7 +68,12 @@ func GetItemValue(key string) (string, error) {
 
 // GetItemValueBool fetches the full item list, merging the results from all providers, then returns a single item's value by key.
 func GetItemValueBool(key string) (bool, error) {
-	i, err := GetItem(key)
+	return _store.GetItemValueBool(key)
+}
+
+// GetItemValueBool fetches the full item list, merging the results from all providers, then returns a single item's value by key.
+func (s *Store) GetItemValueBool(key string) (bool, error) {
+	i, err := s.GetItem(key)
 	if err != nil {
 		return false, err
 	}
@@ -61,7 +82,12 @@ func GetItemValueBool(key string) (bool, error) {
 
 // GetItemValueFloat fetches the full item list, merging the results from all providers, then returns a single item's value by key.
 func GetItemValueFloat(key string) (float64, error) {
-	i, err := GetItem(key)
+	return _store.GetItemValueFloat(key)
+}
+
+// GetItemValueFloat fetches the full item list, merging the results from all providers, then returns a single item's value by key.
+func (s *Store) GetItemValueFloat(key string) (float64, error) {
+	i, err := s.GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -70,7 +96,12 @@ func GetItemValueFloat(key string) (float64, error) {
 
 // GetItemValueInt fetches the full item list, merging the results from all providers, then returns a single item's value by key.
 func GetItemValueInt(key string) (int64, error) {
-	i, err := GetItem(key)
+	return _store.GetItemValueInt(key)
+}
+
+// GetItemValueInt fetches the full item list, merging the results from all providers, then returns a single item's value by key.
+func (s *Store) GetItemValueInt(key string) (int64, error) {
+	i, err := s.GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -79,7 +110,12 @@ func GetItemValueInt(key string) (int64, error) {
 
 // GetItemValueUint fetches the full item list, merging the results from all providers, then returns a single item's value by key.
 func GetItemValueUint(key string) (uint64, error) {
-	i, err := GetItem(key)
+	return _store.GetItemValueUint(key)
+}
+
+// GetItemValueUint fetches the full item list, merging the results from all providers, then returns a single item's value by key.
+func (s *Store) GetItemValueUint(key string) (uint64, error) {
+	i, err := s.GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -88,7 +124,12 @@ func GetItemValueUint(key string) (uint64, error) {
 
 // GetItemValueDuration fetches the full item list, merging the results from all providers, then returns a single item's value by key.
 func GetItemValueDuration(key string) (time.Duration, error) {
-	i, err := GetItem(key)
+	return _store.GetItemValueDuration(key)
+}
+
+// GetItemValueDuration fetches the full item list, merging the results from all providers, then returns a single item's value by key.
+func (s *Store) GetItemValueDuration(key string) (time.Duration, error) {
+	i, err := s.GetItem(key)
 	if err != nil {
 		return time.Duration(0), err
 	}

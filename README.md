@@ -49,6 +49,10 @@ Example mixing several providers
     }
 ```
 
+### From Environment variables
+
+
+
 ## Items
 
 An *item* is composed of 3 fields:

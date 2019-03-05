@@ -12,6 +12,7 @@ import (
 // which can then use it to describe your filters / configuration (e.g. main for usage).
 // See String().
 type ItemFilter struct {
+	store           *Store
 	funcs           []func(*ItemList) *ItemList
 	initialKeySlice string
 	unmarshalType   interface{}
@@ -19,7 +20,12 @@ type ItemFilter struct {
 
 // Filter creates a new empty filter object.
 func Filter() *ItemFilter {
-	return &ItemFilter{}
+	return &ItemFilter{store: _store}
+}
+
+// Filter creates a new empty filter object.
+func (s *Store) Filter() *ItemFilter {
+	return &ItemFilter{store: s}
 }
 
 // String returns a description of the filter.
@@ -43,7 +49,7 @@ func (s *ItemFilter) String() string {
 
 // GetItem fetches the full item list, applies the filter, then returns a single item by key.
 func (s *ItemFilter) GetItem(key string) (Item, error) {
-	items, err := s.GetItemList()
+	items, err := s.store.GetItemList()
 	if err != nil {
 		return Item{}, err
 	}
@@ -54,7 +60,7 @@ func (s *ItemFilter) GetItem(key string) (Item, error) {
 // The eventual error is stored inside, and returned when accessing the item's value.
 // Useful for chaining calls.
 func (s *ItemFilter) MustGetItem(key string) Item {
-	i, err := s.GetItem(key)
+	i, err := s.store.GetItem(key)
 	if err != nil {
 		return Item{unmarshalErr: err}
 	}
@@ -63,7 +69,7 @@ func (s *ItemFilter) MustGetItem(key string) Item {
 
 // GetFirstItem fetches the full item list, applies the filter, then returns the first item of the list.
 func (s *ItemFilter) GetFirstItem() (Item, error) {
-	items, err := s.GetItemList()
+	items, err := s.store.GetItemList()
 	if err != nil {
 		return Item{}, err
 	}
@@ -90,7 +96,7 @@ func (s *ItemFilter) MustGetFirstItem() Item {
 
 // GetItemValue fetches the full item list, applies the filter, then returns a single item's value by key.
 func (s *ItemFilter) GetItemValue(key string) (string, error) {
-	i, err := s.GetItem(key)
+	i, err := s.store.GetItem(key)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +105,7 @@ func (s *ItemFilter) GetItemValue(key string) (string, error) {
 
 // GetItemValueBool fetches the full item list, applies the filter, then returns a single item's value by key.
 func (s *ItemFilter) GetItemValueBool(key string) (bool, error) {
-	i, err := s.GetItem(key)
+	i, err := s.store.GetItem(key)
 	if err != nil {
 		return false, err
 	}
@@ -108,7 +114,7 @@ func (s *ItemFilter) GetItemValueBool(key string) (bool, error) {
 
 // GetItemValueFloat fetches the full item list, applies the filter, then returns a single item's value by key.
 func (s *ItemFilter) GetItemValueFloat(key string) (float64, error) {
-	i, err := s.GetItem(key)
+	i, err := s.store.GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -117,7 +123,7 @@ func (s *ItemFilter) GetItemValueFloat(key string) (float64, error) {
 
 // GetItemValueInt fetches the full item list, applies the filter, then returns a single item's value by key.
 func (s *ItemFilter) GetItemValueInt(key string) (int64, error) {
-	i, err := s.GetItem(key)
+	i, err := s.store.GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -126,7 +132,7 @@ func (s *ItemFilter) GetItemValueInt(key string) (int64, error) {
 
 // GetItemValueUint fetches the full item list, applies the filter, then returns a single item's value by key.
 func (s *ItemFilter) GetItemValueUint(key string) (uint64, error) {
-	i, err := s.GetItem(key)
+	i, err := s.store.GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -135,7 +141,7 @@ func (s *ItemFilter) GetItemValueUint(key string) (uint64, error) {
 
 // GetItemValueDuration fetches the full item list, applies the filter, then returns a single item's value by key.
 func (s *ItemFilter) GetItemValueDuration(key string) (time.Duration, error) {
-	i, err := s.GetItem(key)
+	i, err := s.store.GetItem(key)
 	if err != nil {
 		return time.Duration(0), err
 	}
@@ -144,7 +150,7 @@ func (s *ItemFilter) GetItemValueDuration(key string) (time.Duration, error) {
 
 // GetItemList fetches the full item list, applies the filter, and returns the result.
 func (s *ItemFilter) GetItemList() (*ItemList, error) {
-	items, err := GetItemList()
+	items, err := s.store.GetItemList()
 	if err != nil {
 		return nil, err
 	}

@@ -179,3 +179,27 @@ func must(i interface{}, err error) interface{} {
 func mustType(a interface{}, b interface{}) bool {
 	return reflect.TypeOf(a) == reflect.TypeOf(b)
 }
+
+func TestEnvironmentVariableProvider(t *testing.T) {
+	_store.Clear()
+	envStore := EnvVariable()
+	envStore.BindEnv("TEST_CONFIG_STORE_VAR_A", "var.a")
+	envStore.BindEnv("TEST_CONFIG_STORE_VAR_B", "var.b")
+	envStore.BindEnv("TEST_CONFIG_STORE_VAR_C", "var.c")
+
+	os.Setenv("TEST_CONFIG_STORE_VAR_A", "VALUE A")
+	os.Setenv("TEST_CONFIG_STORE_VAR_B", "VALUE B")
+
+	list, err := GetItemList()
+	assert.NoError(t, err)
+	assert.Len(t, list.Keys(), 2)
+
+	filter := Filter()
+	valuea, erra := filter.GetItemValue("var.a")
+	valueb, errb := filter.GetItemValue("var.b")
+	assert.Equal(t, valuea, "VALUE A")
+	assert.Equal(t, valueb, "VALUE B")
+	assert.NoError(t, erra)
+	assert.NoError(t, errb)
+
+}

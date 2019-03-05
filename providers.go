@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -15,32 +16,50 @@ import (
 )
 
 // ErrorProvider registers a configstore provider which always returns an error.
-func ErrorProvider(name string, err error) {
-	RegisterProvider(name, func() (ItemList, error) { return ItemList{}, err })
+func (s *Store) ErrorProvider(name string, err error) {
+	s.RegisterProvider(name, func() (ItemList, error) { return ItemList{}, err })
 }
 
 // File registers a configstore provider which reads from the file given in parameter (static content).
 func File(filename string) {
-	file(filename, false, nil)
+	_store.file(filename, false, nil)
 }
 
 // FileRefresh registers a configstore provider which readfs from the file given in parameter (provider watches file stat for auto refresh, watchers get notified).
 func FileRefresh(filename string) {
-	file(filename, true, nil)
+	_store.file(filename, true, nil)
 }
 
 // FileCustom registers a configstore provider which reads from the file given in parameter, and loads the content using the given unmarshal function
 func FileCustom(filename string, fn func([]byte) ([]Item, error)) {
-	file(filename, false, fn)
+	_store.file(filename, false, fn)
 }
 
 // FileCustomRefresh registers a configstore provider which reads from the file given in parameter, and loads the content using the given unmarshal function; and watches file stat for auto refresh
 func FileCustomRefresh(filename string, fn func([]byte) ([]Item, error)) {
-	file(filename, true, fn)
+	_store.file(filename, true, fn)
 }
 
-func file(filename string, refresh bool, fn func([]byte) ([]Item, error)) {
+func (s *Store) File(filename string) {
+	s.file(filename, false, nil)
+}
 
+// FileRefresh registers a configstore provider which readfs from the file given in parameter (provider watches file stat for auto refresh, watchers get notified).
+func (s *Store) FileRefresh(filename string) {
+	s.file(filename, true, nil)
+}
+
+// FileCustom registers a configstore provider which reads from the file given in parameter, and loads the content using the given unmarshal function
+func (s *Store) FileCustom(filename string, fn func([]byte) ([]Item, error)) {
+	s.file(filename, false, fn)
+}
+
+// FileCustomRefresh registers a configstore provider which reads from the file given in parameter, and loads the content using the given unmarshal function; and watches file stat for auto refresh
+func (s *Store) FileCustomRefresh(filename string, fn func([]byte) ([]Item, error)) {
+	s.file(filename, true, fn)
+}
+
+func (s *Store) file(filename string, refresh bool, fn func([]byte) ([]Item, error)) {
 	if filename == "" {
 		return
 	}
@@ -50,7 +69,7 @@ func file(filename string, refresh bool, fn func([]byte) ([]Item, error)) {
 	last := time.Now()
 	vals, err := readFile(filename, fn)
 	if err != nil {
-		ErrorProvider(providername, err)
+		s.ErrorProvider(providername, err)
 		return
 	}
 	inmem := InMemory(providername)
@@ -77,7 +96,7 @@ func file(filename string, refresh bool, fn func([]byte) ([]Item, error)) {
 				inmem.mut.Lock()
 				inmem.items = vals
 				inmem.mut.Unlock()
-				NotifyWatchers()
+				s.NotifyWatchers()
 			}
 		}()
 	}
@@ -90,7 +109,16 @@ func file(filename string, refresh bool, fn func([]byte) ([]Item, error)) {
 // Capitalization can be used to indicate item priority for sub-directories containing multiple items which should be differentiated.
 // Capitalized = higher priority.
 func FileTree(dirname string) {
+	_store.FileTree(dirname)
+}
 
+// FileTree registers a configstore provider which reads from the files contained in the directory given in parameter.
+// A limited hierarchy is supported: files can either be top level (in which case the file name will be used as the item key),
+// or nested in a single sub-directory (in which case the sub-directory name will be used as item key for all the files contained in it).
+// The content of the files should be the plain data, with no envelope.
+// Capitalization can be used to indicate item priority for sub-directories containing multiple items which should be differentiated.
+// Capitalized = higher priority.
+func (s *Store) FileTree(dirname string) {
 	if dirname == "" {
 		return
 	}
@@ -99,7 +127,7 @@ func FileTree(dirname string) {
 
 	files, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		ErrorProvider(providername, err)
+		s.ErrorProvider(providername, err)
 		return
 	}
 
@@ -111,13 +139,13 @@ func FileTree(dirname string) {
 		if f.IsDir() {
 			items, err = browseDir(items, filename, f.Name())
 			if err != nil {
-				ErrorProvider(providername, err)
+				s.ErrorProvider(providername, err)
 				return
 			}
 		} else {
 			it, err := readItem(filename, f.Name(), f.Name())
 			if err != nil {
-				ErrorProvider(providername, err)
+				s.ErrorProvider(providername, err)
 				return
 			}
 			items = append(items, it)
@@ -133,19 +161,24 @@ func FileTree(dirname string) {
 // FileList registers a configstore provider which reads from the files contained in the directory given in parameter.
 // The content of the files should be JSON/YAML similar to the File provider.
 func FileList(dirname string) {
+	_store.FileList(dirname)
+}
 
+// FileList registers a configstore provider which reads from the files contained in the directory given in parameter.
+// The content of the files should be JSON/YAML similar to the File provider.
+func (s *Store) FileList(dirname string) {
 	if dirname == "" {
 		return
 	}
 
 	files, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		ErrorProvider(fmt.Sprintf("filelist:%s", dirname), err)
+		s.ErrorProvider(fmt.Sprintf("filelist:%s", dirname), err)
 		return
 	}
 
 	for _, file := range files {
-		File(filepath.Join(dirname, file.Name()))
+		s.File(filepath.Join(dirname, file.Name()))
 	}
 }
 
@@ -225,7 +258,58 @@ func (inmem *InMemoryProvider) Items() (ItemList, error) {
 // InMemory registers an InMemoryProvider with a given arbitrary name and returns it.
 // You can append any number of items to it, see Add().
 func InMemory(name string) *InMemoryProvider {
+	return _store.InMemory(name)
+}
+
+func (s *Store) InMemory(name string) *InMemoryProvider {
 	inmem := &InMemoryProvider{}
-	RegisterProvider(name, inmem.Items)
+	s.RegisterProvider(name, inmem.Items)
 	return inmem
+}
+
+func EnvVariable() *EnvVariableProvider {
+	return _store.EnvVariable()
+}
+
+type EnvVariableProvider struct {
+	inMemory InMemoryProvider
+	bindings map[string]string
+}
+
+func (s *Store) EnvVariable() *EnvVariableProvider {
+	var environ = os.Environ()
+	var provider = EnvVariableProvider{
+		inMemory: InMemoryProvider{},
+		bindings: make(map[string]string, len(environ)),
+	}
+	s.RegisterProvider("environ", provider.Items)
+	return &provider
+}
+
+func (s *EnvVariableProvider) BindEnv(environmentVariable string, itemKey string) {
+	s.inMemory.mut.Lock()
+	defer s.inMemory.mut.Unlock()
+	s.bindings[environmentVariable] = itemKey
+}
+
+func (s *EnvVariableProvider) Items() (ItemList, error) {
+	environ := os.Environ()
+	s.inMemory.mut.Lock()
+	s.inMemory.items = make([]Item, 0, len(environ))
+	s.inMemory.mut.Unlock()
+
+	for _, env := range environ {
+		splittedEnv := strings.SplitN(env, "=", 2)
+		variable := splittedEnv[0]
+		value := splittedEnv[1]
+		key, has := s.bindings[variable]
+		if has {
+			s.inMemory.Add(Item{
+				key:   key,
+				value: value,
+			})
+		}
+	}
+
+	return s.inMemory.Items()
 }
