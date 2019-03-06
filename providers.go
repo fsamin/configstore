@@ -12,7 +12,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/ghodss/yaml"
-	"github.com/sirupsen/logrus"
 )
 
 // ErrorProvider registers a configstore provider which always returns an error.
@@ -73,7 +72,7 @@ func (s *Store) file(filename string, refresh bool, fn func([]byte) ([]Item, err
 		return
 	}
 	inmem := InMemory(providername)
-	logrus.Infof("Configuration from file: %s", filename)
+	LogInfo("Configuration from file: %s", filename)
 	inmem.Add(vals...)
 
 	if refresh {
@@ -267,20 +266,50 @@ func (s *Store) InMemory(name string) *InMemoryProvider {
 	return inmem
 }
 
-func EnvVariable() *EnvVariableProvider {
-	return _store.EnvVariable()
+func EnvVariable(opts ...EnvVariableOptions) *EnvVariableProvider {
+	return _store.EnvVariable(opts...)
 }
 
 type EnvVariableProvider struct {
 	inMemory InMemoryProvider
 	bindings map[string]string
+	priority int64
 }
 
-func (s *Store) EnvVariable() *EnvVariableProvider {
+type EnvVariableOptions func(s *EnvVariableProvider)
+
+func WithPriority(p int64) EnvVariableOptions {
+	return func(s *EnvVariableProvider) {
+		s.priority = p
+	}
+}
+
+func WithAutomaticBinding(prefix, keySeparator string) EnvVariableOptions {
+	return func(s *EnvVariableProvider) {
+		environ := os.Environ()
+		for _, env := range environ {
+			splittedEnv := strings.SplitN(env, "=", 2)
+			variable := splittedEnv[0]
+			if !strings.HasPrefix(variable, prefix) {
+				continue
+			}
+			itemKey := strings.TrimPrefix(variable, prefix)
+			itemKey = strings.TrimPrefix(itemKey, "_")
+			itemKey = strings.Replace(itemKey, "_", keySeparator, -1)
+			itemKey = strings.ToLower(itemKey)
+			s.BindEnv(variable, itemKey)
+		}
+	}
+}
+
+func (s *Store) EnvVariable(opts ...EnvVariableOptions) *EnvVariableProvider {
 	var environ = os.Environ()
 	var provider = EnvVariableProvider{
 		inMemory: InMemoryProvider{},
 		bindings: make(map[string]string, len(environ)),
+	}
+	for _, opt := range opts {
+		opt(&provider)
 	}
 	s.RegisterProvider("environ", provider.Items)
 	return &provider
@@ -305,8 +334,9 @@ func (s *EnvVariableProvider) Items() (ItemList, error) {
 		key, has := s.bindings[variable]
 		if has {
 			s.inMemory.Add(Item{
-				key:   key,
-				value: value,
+				key:      key,
+				value:    value,
+				priority: s.priority,
 			})
 		}
 	}

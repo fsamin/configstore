@@ -201,5 +201,24 @@ func TestEnvironmentVariableProvider(t *testing.T) {
 	assert.Equal(t, valueb, "VALUE B")
 	assert.NoError(t, erra)
 	assert.NoError(t, errb)
+}
 
+func TestAutomatiqueEnvironmentVariableProvider(t *testing.T) {
+	_store.Clear()
+	os.Setenv("TEST_CONFIG_STORE_VAR_A", "VALUE A")
+	os.Setenv("TEST_CONFIG_STORE_VAR_B", "VALUE B")
+
+	EnvVariable(WithPriority(1), WithAutomaticBinding("TEST_CONFIG_STORE", "."))
+
+	list, err := GetItemList()
+	assert.NoError(t, err)
+	assert.Len(t, list.Keys(), 2)
+
+	filter := Filter()
+	valuea, erra := filter.GetItemValue("var.a")
+	valueb, errb := filter.GetItemValue("var.b")
+	assert.Equal(t, valuea, "VALUE A")
+	assert.Equal(t, valueb, "VALUE B")
+	assert.NoError(t, erra)
+	assert.NoError(t, errb)
 }
