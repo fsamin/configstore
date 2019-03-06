@@ -3,6 +3,7 @@ package configstore
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -17,27 +18,27 @@ type Store struct {
 	providers             map[string]Provider
 	pMut                  sync.Mutex
 	allowProviderOverride bool
-	providerFactories     map[string]func(string)
-	pFactMut              sync.Mutex
 	watchers              []chan struct{}
 	watchersMut           sync.Mutex
 }
 
 var (
-	_store *Store
+	_store            *Store
+	pFactMut          sync.Mutex
+	providerFactories                                          = map[string]func(string){}
+	LogInfo           func(format string, args ...interface{}) = log.Printf
 )
 
 func init() {
 	_store = New()
-	_store.RegisterProviderFactory("file", File)
-	_store.RegisterProviderFactory("filelist", FileList)
-	_store.RegisterProviderFactory("filetree", FileTree)
+	RegisterProviderFactory("file", File)
+	RegisterProviderFactory("filelist", FileList)
+	RegisterProviderFactory("filetree", FileTree)
 }
 
 func New() *Store {
 	s := Store{
-		pMut:     sync.Mutex{},
-		pFactMut: sync.Mutex{},
+		pMut: sync.Mutex{},
 	}
 	return s.Clear()
 }
@@ -45,12 +46,9 @@ func New() *Store {
 func (s *Store) Clear() *Store {
 	s.pMut.Lock()
 	defer s.pMut.Unlock()
-	s.pFactMut.Lock()
-	defer s.pFactMut.Unlock()
 
 	s.providers = map[string]Provider{}
 	s.allowProviderOverride = false
-	s.providerFactories = map[string]func(string){}
 	return s
 }
 
@@ -87,7 +85,7 @@ func AllowProviderOverride() {
 // This is useful for controlled test cases, but is not recommended in the context of a real
 // application.
 func (s *Store) AllowProviderOverride() {
-	fmt.Fprintln(os.Stderr, "configstore: ATTENTION: PROVIDER OVERRIDE ALLOWED/ENABLED")
+	LogInfo("configstore: ATTENTION: PROVIDER OVERRIDE ALLOWED/ENABLED")
 	s.pMut.Lock()
 	defer s.pMut.Unlock()
 	s.allowProviderOverride = true
@@ -96,19 +94,13 @@ func (s *Store) AllowProviderOverride() {
 // RegisterProviderFactory registers a factory function so that InitFromEnvironment can properly
 // instantiate configuration providers via name + argument.
 func RegisterProviderFactory(name string, f func(string)) {
-	_store.RegisterProviderFactory(name, f)
-}
-
-// RegisterProviderFactory registers a factory function so that InitFromEnvironment can properly
-// instantiate configuration providers via name + argument.
-func (s *Store) RegisterProviderFactory(name string, f func(string)) {
-	s.pMut.Lock()
-	defer s.pMut.Unlock()
-	_, ok := s.providerFactories[name]
+	pFactMut.Lock()
+	defer pFactMut.Unlock()
+	_, ok := providerFactories[name]
 	if ok {
 		panic(fmt.Sprintf("conflict on configuration provider factory: %s", name))
 	}
-	s.providerFactories[name] = f
+	providerFactories[name] = f
 }
 
 // InitFromEnvironment initializes configuration providers via their name and an optional argument.
@@ -128,8 +120,8 @@ func InitFromEnvironment() {
 // Valid example:
 // CONFIGURATION_FROM=file:/etc/myfile.conf,file:/etc/myfile2.conf,filelist:/home/foobar/configs
 func (s *Store) InitFromEnvironment() {
-	s.pFactMut.Lock()
-	defer s.pFactMut.Unlock()
+	pFactMut.Lock()
+	defer pFactMut.Unlock()
 
 	cfg := os.Getenv(ConfigEnvVar)
 	if cfg == "" {
@@ -146,7 +138,7 @@ func (s *Store) InitFromEnvironment() {
 		}
 		name = strings.TrimSpace(name)
 		arg = strings.TrimSpace(arg)
-		f := s.providerFactories[name]
+		f := providerFactories[name]
 		if f == nil {
 			s.ErrorProvider(fmt.Sprintf("%s:%s", name, arg), errors.New("failed to instantiate provider factory"))
 		} else {
