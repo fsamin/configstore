@@ -12,25 +12,36 @@ import (
 // which can then use it to describe your filters / configuration (e.g. main for usage).
 // See String().
 type ItemFilter struct {
-	store           *Store
+	store           *Store // If the store is nil, the package _store variable will be used
 	funcs           []func(*ItemList) *ItemList
 	initialKeySlice string
 	unmarshalType   interface{}
 }
 
 // Filter creates a new empty filter object.
-func Filter() *ItemFilter {
-	return &ItemFilter{store: _store}
+func Filter() ItemFilter {
+	return ItemFilter{}
 }
 
-// Filter creates a new empty filter object.
-func (s *Store) Filter() *ItemFilter {
-	return &ItemFilter{store: s}
+func (s ItemFilter) Store(store *Store) ItemFilter {
+	return ItemFilter{
+		store:           store,
+		funcs:           s.funcs,
+		initialKeySlice: s.initialKeySlice,
+		unmarshalType:   s.unmarshalType,
+	}
+}
+
+func (s ItemFilter) getStore() *Store {
+	if s.store == nil {
+		return _store
+	}
+	return s.store
 }
 
 // String returns a description of the filter.
-func (s *ItemFilter) String() string {
-	if s == nil || s.initialKeySlice == "" {
+func (s ItemFilter) String() string {
+	if s.initialKeySlice == "" {
 		return ""
 	}
 
@@ -48,8 +59,8 @@ func (s *ItemFilter) String() string {
  */
 
 // GetItem fetches the full item list, applies the filter, then returns a single item by key.
-func (s *ItemFilter) GetItem(key string) (Item, error) {
-	items, err := s.store.GetItemList()
+func (s ItemFilter) GetItem(key string) (Item, error) {
+	items, err := s.getStore().GetItemList()
 	if err != nil {
 		return Item{}, err
 	}
@@ -59,8 +70,8 @@ func (s *ItemFilter) GetItem(key string) (Item, error) {
 // MustGetItem is similar to GetItem, but always returns an Item object.
 // The eventual error is stored inside, and returned when accessing the item's value.
 // Useful for chaining calls.
-func (s *ItemFilter) MustGetItem(key string) Item {
-	i, err := s.store.GetItem(key)
+func (s ItemFilter) MustGetItem(key string) Item {
+	i, err := s.getStore().GetItem(key)
 	if err != nil {
 		return Item{unmarshalErr: err}
 	}
@@ -68,8 +79,8 @@ func (s *ItemFilter) MustGetItem(key string) Item {
 }
 
 // GetFirstItem fetches the full item list, applies the filter, then returns the first item of the list.
-func (s *ItemFilter) GetFirstItem() (Item, error) {
-	items, err := s.store.GetItemList()
+func (s ItemFilter) GetFirstItem() (Item, error) {
+	items, err := s.getStore().GetItemList()
 	if err != nil {
 		return Item{}, err
 	}
@@ -86,7 +97,7 @@ func (s *ItemFilter) GetFirstItem() (Item, error) {
 // MustGetFirstItem is similar to GetFirstItem, but always returns an Item object.
 // The eventual error is stored inside, and returned when accessing the item's value.
 // Useful for chaining calls.
-func (s *ItemFilter) MustGetFirstItem() Item {
+func (s ItemFilter) MustGetFirstItem() Item {
 	i, err := s.GetFirstItem()
 	if err != nil {
 		return Item{unmarshalErr: err}
@@ -95,8 +106,8 @@ func (s *ItemFilter) MustGetFirstItem() Item {
 }
 
 // GetItemValue fetches the full item list, applies the filter, then returns a single item's value by key.
-func (s *ItemFilter) GetItemValue(key string) (string, error) {
-	i, err := s.store.GetItem(key)
+func (s ItemFilter) GetItemValue(key string) (string, error) {
+	i, err := s.getStore().GetItem(key)
 	if err != nil {
 		return "", err
 	}
@@ -104,8 +115,8 @@ func (s *ItemFilter) GetItemValue(key string) (string, error) {
 }
 
 // GetItemValueBool fetches the full item list, applies the filter, then returns a single item's value by key.
-func (s *ItemFilter) GetItemValueBool(key string) (bool, error) {
-	i, err := s.store.GetItem(key)
+func (s ItemFilter) GetItemValueBool(key string) (bool, error) {
+	i, err := s.getStore().GetItem(key)
 	if err != nil {
 		return false, err
 	}
@@ -113,8 +124,8 @@ func (s *ItemFilter) GetItemValueBool(key string) (bool, error) {
 }
 
 // GetItemValueFloat fetches the full item list, applies the filter, then returns a single item's value by key.
-func (s *ItemFilter) GetItemValueFloat(key string) (float64, error) {
-	i, err := s.store.GetItem(key)
+func (s ItemFilter) GetItemValueFloat(key string) (float64, error) {
+	i, err := s.getStore().GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -122,8 +133,8 @@ func (s *ItemFilter) GetItemValueFloat(key string) (float64, error) {
 }
 
 // GetItemValueInt fetches the full item list, applies the filter, then returns a single item's value by key.
-func (s *ItemFilter) GetItemValueInt(key string) (int64, error) {
-	i, err := s.store.GetItem(key)
+func (s ItemFilter) GetItemValueInt(key string) (int64, error) {
+	i, err := s.getStore().GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -131,8 +142,8 @@ func (s *ItemFilter) GetItemValueInt(key string) (int64, error) {
 }
 
 // GetItemValueUint fetches the full item list, applies the filter, then returns a single item's value by key.
-func (s *ItemFilter) GetItemValueUint(key string) (uint64, error) {
-	i, err := s.store.GetItem(key)
+func (s ItemFilter) GetItemValueUint(key string) (uint64, error) {
+	i, err := s.getStore().GetItem(key)
 	if err != nil {
 		return 0, err
 	}
@@ -140,8 +151,8 @@ func (s *ItemFilter) GetItemValueUint(key string) (uint64, error) {
 }
 
 // GetItemValueDuration fetches the full item list, applies the filter, then returns a single item's value by key.
-func (s *ItemFilter) GetItemValueDuration(key string) (time.Duration, error) {
-	i, err := s.store.GetItem(key)
+func (s ItemFilter) GetItemValueDuration(key string) (time.Duration, error) {
+	i, err := s.getStore().GetItem(key)
 	if err != nil {
 		return time.Duration(0), err
 	}
@@ -149,8 +160,8 @@ func (s *ItemFilter) GetItemValueDuration(key string) (time.Duration, error) {
 }
 
 // GetItemList fetches the full item list, applies the filter, and returns the result.
-func (s *ItemFilter) GetItemList() (*ItemList, error) {
-	items, err := s.store.GetItemList()
+func (s ItemFilter) GetItemList() (*ItemList, error) {
+	items, err := s.getStore().GetItemList()
 	if err != nil {
 		return nil, err
 	}
@@ -158,10 +169,7 @@ func (s *ItemFilter) GetItemList() (*ItemList, error) {
 }
 
 // Apply applies the filter on an existing item list.
-func (s *ItemFilter) Apply(items *ItemList) *ItemList {
-	if s == nil {
-		return items
-	}
+func (s ItemFilter) Apply(items *ItemList) *ItemList {
 	filtered := items
 	for _, f := range s.funcs {
 		filtered = f(filtered)
@@ -173,24 +181,9 @@ func (s *ItemFilter) Apply(items *ItemList) *ItemList {
  ** LIST MANIPULATION
  */
 
-// chained calls return a copy of the filter.
-// all objects (filter + list + item) are immutable.
-func copyItemFilter(s *ItemFilter) *ItemFilter {
-	ret := &ItemFilter{}
-	if s != nil {
-		ret.funcs = s.funcs
-		ret.unmarshalType = s.unmarshalType
-		ret.initialKeySlice = s.initialKeySlice
-	}
-	return ret
-}
-
 // Slice filters the list items, keeping only those matching key.
 // You can optionally pass a list of modifier functions, to be invoked when applying the filter.
-func (s *ItemFilter) Slice(key string, keyF ...func(string) string) *ItemFilter {
-
-	s = copyItemFilter(s)
-
+func (s ItemFilter) Slice(key string, keyF ...func(string) string) ItemFilter {
 	if s.initialKeySlice == "" {
 		s.initialKeySlice = key
 	}
@@ -210,7 +203,7 @@ func (s *ItemFilter) Slice(key string, keyF ...func(string) string) *ItemFilter 
 
 // Rekey modifies item keys. The function parameter is called for each item in the item list, and the returned string
 // is used as the new key.
-func (s *ItemFilter) Rekey(rekeyF func(*Item) string) *ItemFilter {
+func (s ItemFilter) Rekey(rekeyF func(*Item) string) ItemFilter {
 	return s.mapFunc(func(sec *Item) Item {
 		return Item{
 			key:          rekeyF(sec),
@@ -224,7 +217,7 @@ func (s *ItemFilter) Rekey(rekeyF func(*Item) string) *ItemFilter {
 
 // Reorder modifies item priority. The function parameter is called for each item in the item list, and the returned integer
 // is used as the new priority.
-func (s *ItemFilter) Reorder(reorderF func(*Item) int64) *ItemFilter {
+func (s ItemFilter) Reorder(reorderF func(*Item) int64) ItemFilter {
 	return s.mapFunc(func(sec *Item) Item {
 		return Item{
 			key:          sec.key,
@@ -238,7 +231,7 @@ func (s *ItemFilter) Reorder(reorderF func(*Item) int64) *ItemFilter {
 
 // Transform modifies item values. The function parameter is called for each item in the item list, and the returned string + error
 // are the values which will be returned by item.Value().
-func (s *ItemFilter) Transform(transformF func(*Item) (string, error)) *ItemFilter {
+func (s ItemFilter) Transform(transformF func(*Item) (string, error)) ItemFilter {
 	return s.mapFunc(func(sec *Item) Item {
 		if sec.unmarshalErr != nil {
 			return *sec
@@ -256,10 +249,7 @@ func (s *ItemFilter) Transform(transformF func(*Item) (string, error)) *ItemFilt
 
 // Unmarshal tries to unmarshal (from JSON or YAML) all the items in the item list into objects returned by the factory f().
 // The results and errors will be stored to be handled later. See item.Unmarshaled().
-func (s *ItemFilter) Unmarshal(f func() interface{}) *ItemFilter {
-
-	s = copyItemFilter(s)
-
+func (s ItemFilter) Unmarshal(f func() interface{}) ItemFilter {
 	if f == nil {
 		return s
 	}
@@ -281,10 +271,7 @@ func (s *ItemFilter) Unmarshal(f func() interface{}) *ItemFilter {
 }
 
 // Implementation of the map logic for Rekey/Reorder/... public functions
-func (s *ItemFilter) mapFunc(mapF func(*Item) Item) *ItemFilter {
-
-	s = copyItemFilter(s)
-
+func (s ItemFilter) mapFunc(mapF func(*Item) Item) ItemFilter {
 	s.funcs = append(s.funcs, func(s *ItemList) *ItemList {
 		ret := &ItemList{}
 
@@ -299,10 +286,7 @@ func (s *ItemFilter) mapFunc(mapF func(*Item) Item) *ItemFilter {
 }
 
 // Squash filters the items in the item list, keeping only the items with the highest priority for each key.
-func (s *ItemFilter) Squash() *ItemFilter {
-
-	s = copyItemFilter(s)
-
+func (s ItemFilter) Squash() ItemFilter {
 	s.funcs = append(s.funcs, func(s *ItemList) *ItemList {
 		ret := &ItemList{}
 		for _, l := range s.indexed {
