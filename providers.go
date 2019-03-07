@@ -262,15 +262,12 @@ func InMemory(name string) *InMemoryProvider {
 
 func (s *Store) InMemory(name string) *InMemoryProvider {
 	inmem := &InMemoryProvider{}
-	s.RegisterProvider(name, inmem.Items)
+	s.Register(name, inmem)
 	return inmem
 }
 
-func EnvVariable(opts ...EnvVariableOptions) *EnvVariableProvider {
-	return _store.EnvVariable(opts...)
-}
-
 type EnvVariableProvider struct {
+	store    *Store
 	inMemory InMemoryProvider
 	bindings map[string]string
 	priority int64
@@ -287,6 +284,7 @@ func WithPriority(p int64) EnvVariableOptions {
 func WithAutomaticBinding(prefix, keySeparator string) EnvVariableOptions {
 	return func(s *EnvVariableProvider) {
 		environ := os.Environ()
+
 		for _, env := range environ {
 			splittedEnv := strings.SplitN(env, "=", 2)
 			variable := splittedEnv[0]
@@ -302,17 +300,28 @@ func WithAutomaticBinding(prefix, keySeparator string) EnvVariableOptions {
 	}
 }
 
-func (s *Store) EnvVariable(opts ...EnvVariableOptions) *EnvVariableProvider {
+func FromEnvVariables(s *Store, opts ...EnvVariableOptions) *EnvVariableProvider {
 	var environ = os.Environ()
-	var provider = EnvVariableProvider{
+	var provider = &EnvVariableProvider{
+		store:    s,
 		inMemory: InMemoryProvider{},
 		bindings: make(map[string]string, len(environ)),
 	}
 	for _, opt := range opts {
-		opt(&provider)
+		opt(provider)
 	}
-	s.RegisterProvider("environ", provider.Items)
-	return &provider
+	s.Register("environ", provider)
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			provider.itemsFromEnviron()
+			s.NotifyWatchers()
+		}
+	}()
+
+	return provider
 }
 
 func (s *EnvVariableProvider) BindEnv(environmentVariable string, itemKey string) {
@@ -322,7 +331,12 @@ func (s *EnvVariableProvider) BindEnv(environmentVariable string, itemKey string
 }
 
 func (s *EnvVariableProvider) Items() (ItemList, error) {
+	return s.itemsFromEnviron()
+}
+
+func (s *EnvVariableProvider) itemsFromEnviron() (ItemList, error) {
 	environ := os.Environ()
+
 	s.inMemory.mut.Lock()
 	s.inMemory.items = make([]Item, 0, len(environ))
 	s.inMemory.mut.Unlock()
@@ -331,7 +345,11 @@ func (s *EnvVariableProvider) Items() (ItemList, error) {
 		splittedEnv := strings.SplitN(env, "=", 2)
 		variable := splittedEnv[0]
 		value := splittedEnv[1]
+
+		s.inMemory.mut.Lock()
 		key, has := s.bindings[variable]
+		s.inMemory.mut.Unlock()
+
 		if has {
 			s.inMemory.Add(Item{
 				key:      key,
@@ -340,6 +358,5 @@ func (s *EnvVariableProvider) Items() (ItemList, error) {
 			})
 		}
 	}
-
 	return s.inMemory.Items()
 }

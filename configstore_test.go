@@ -182,10 +182,11 @@ func mustType(a interface{}, b interface{}) bool {
 
 func TestEnvironmentVariableProvider(t *testing.T) {
 	_store.Clear()
-	envStore := EnvVariable()
-	envStore.BindEnv("TEST_CONFIG_STORE_VAR_A", "var.a")
-	envStore.BindEnv("TEST_CONFIG_STORE_VAR_B", "var.b")
-	envStore.BindEnv("TEST_CONFIG_STORE_VAR_C", "var.c")
+	env := FromEnvVariables(_store)
+	env.BindEnv("TEST_CONFIG_STORE_VAR_A", "var.a")
+	env.BindEnv("TEST_CONFIG_STORE_VAR_B", "var.b")
+	env.BindEnv("TEST_CONFIG_STORE_VAR_C", "var.c")
+	env.BindEnv("TEST_CONFIG_STORE_VAR_D", "var.d")
 
 	os.Setenv("TEST_CONFIG_STORE_VAR_A", "VALUE A")
 	os.Setenv("TEST_CONFIG_STORE_VAR_B", "VALUE B")
@@ -201,14 +202,28 @@ func TestEnvironmentVariableProvider(t *testing.T) {
 	assert.Equal(t, valueb, "VALUE B")
 	assert.NoError(t, erra)
 	assert.NoError(t, errb)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		os.Setenv("TEST_CONFIG_STORE_VAR_D", "VALUE D")
+	}()
+
+	<-Watch()
+	list, err = GetItemList()
+	assert.NoError(t, err)
+	assert.Len(t, list.Keys(), 3)
+	valued, errd := filter.GetItemValue("var.d")
+	assert.Equal(t, valued, "VALUE D")
+	assert.NoError(t, errd)
+	os.Unsetenv("TEST_CONFIG_STORE_VAR_D")
 }
 
-func TestAutomatiqueEnvironmentVariableProvider(t *testing.T) {
+func TestAutomaticEnvironmentVariableProvider(t *testing.T) {
 	os.Setenv("TEST_CONFIG_STORE_VAR_A", "VALUE A")
 	os.Setenv("TEST_CONFIG_STORE_VAR_B", "VALUE B")
 
 	s := New()
-	s.EnvVariable(WithPriority(1), WithAutomaticBinding("TEST_CONFIG_STORE", "."))
+	FromEnvVariables(s, WithPriority(1), WithAutomaticBinding("TEST_CONFIG_STORE", "."))
 
 	filter := Filter().Store(s)
 	list, err := filter.GetItemList()
@@ -221,4 +236,5 @@ func TestAutomatiqueEnvironmentVariableProvider(t *testing.T) {
 	assert.Equal(t, valueb, "VALUE B")
 	assert.NoError(t, erra)
 	assert.NoError(t, errb)
+
 }

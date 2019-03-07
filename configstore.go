@@ -43,6 +43,10 @@ func New() *Store {
 	return s.Clear()
 }
 
+func Get() *Store {
+	return _store
+}
+
 func (s *Store) Clear() *Store {
 	s.pMut.Lock()
 	defer s.pMut.Unlock()
@@ -58,9 +62,22 @@ func (s *Store) Clear() *Store {
 // It's the responsability of the application using configstore to register suitable providers.
 type Provider func() (ItemList, error)
 
+type IProvider interface {
+	Items() (ItemList, error)
+}
+
 // RegisterProvider registers a provider
 func RegisterProvider(name string, f Provider) {
 	_store.RegisterProvider(name, f)
+}
+
+func Register(name string, f IProvider) {
+	_store.Register(name, f)
+}
+
+// Register registers a provider
+func (s *Store) Register(name string, f IProvider) {
+	s.RegisterProvider(name, f.Items)
 }
 
 // RegisterProvider registers a provider
@@ -149,6 +166,12 @@ func (s *Store) InitFromEnvironment() {
 
 // Watch returns a channel which you can range over.
 // You will get unblocked every time a provider notifies of a configuration change.
+func Watch() <-chan struct{} {
+	return _store.Watch()
+}
+
+// Watch returns a channel which you can range over.
+// You will get unblocked every time a provider notifies of a configuration change.
 func (s *Store) Watch() <-chan struct{} {
 	// buffer size == 1, notifications will never use a blocking write
 	newCh := make(chan struct{}, 1)
@@ -156,6 +179,12 @@ func (s *Store) Watch() <-chan struct{} {
 	s.watchers = append(s.watchers, newCh)
 	s.watchersMut.Unlock()
 	return newCh
+}
+
+// NotifyWatchers is used by providers to notify of configuration changes.
+// It unblocks all the watchers which are ranging over a watch channel.
+func NotifyWatchers() {
+	_store.NotifyWatchers()
 }
 
 // NotifyWatchers is used by providers to notify of configuration changes.
